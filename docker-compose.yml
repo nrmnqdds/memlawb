@@ -1,0 +1,13 @@
+services:
+  memlawb:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      # STORE=fs writes under DATA_DIR (default ./data, i.e. /app/data in the
+      # image's WORKDIR) — bind-mount it or every `docker compose down -v` /
+      # image rebuild silently wipes all stored memory.
+      - ./data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped

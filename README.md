@@ -77,19 +77,36 @@ over ciphertext. The encryption key never leaves the client.
 
 ## Quick start (self-host)
 
+The server runs in Docker; the CLI is a plain HTTP client that stays on your
+host (`bin/memlawb.ts` isn't even built into the image) and talks to whatever
+`MEMLAWB_URL` you point it at.
+
 ```bash
+# 1. mint yourself a static API key and put it in .env (owner:key pairs)
+echo "STATIC_API_KEYS=me:mk_live_$(openssl rand -hex 16)" >> .env
+
+# 2. build + run the server — ./data is bind-mounted so memory survives
+#    `docker compose down` / rebuilds; without it, storage is ephemeral.
+docker compose up -d --build
+
+# 3. sync a memory directory, end-to-end encrypted (host-side)
 bun install
-
-# 1. run the server (filesystem storage, single-user open mode)
-ALLOW_UNAUTHENTICATED=true STORE=fs DATA_DIR=./data bun run src/index.ts
-
-# 2. sync a memory directory, end-to-end encrypted
 export MEMLAWB_URL=http://localhost:8080
+export MEMLAWB_API_KEY='mk_live_...'   # the key you put in .env above
 export MEMLAWB_PASSPHRASE='your-zero-knowledge-passphrase'   # never sent to the server
 
 bun run bin/memlawb.ts push ./my-memories user:me   # encrypt + upload
 bun run bin/memlawb.ts pull ./restored      user:me   # download + decrypt
 ```
+
+> The owner in `STATIC_API_KEYS` gates which namespaces that key can reach: a
+> key minted for owner `me` can only touch `user:me` and `user:me/...` — never
+> another owner's namespace (`src/auth.ts` `authorizeNamespace`). Keep the
+> namespace argument's `user:<owner>` segment matching the key you're using.
+>
+> `ALLOW_UNAUTHENTICATED=true` (mapping every request to one implicit owner,
+> `local`) exists for a throwaway local sandbox only — don't put it in `.env`
+> for anything you'd mind losing to an unauthenticated request.
 
 What lands on the server is ciphertext — `grep` your data dir for any plaintext
 and you'll find nothing.
